@@ -1,5 +1,5 @@
 {
-  "name": "vite-project",
+  "name": "layout-designer",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,8 +10,10 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.4",
+    "@vueuse/core": "^13.1.0",
     "tailwindcss": "^4.1.4",
-    "vue": "^3.5.13"
+    "vue": "^3.5.13",
+    "vue-component-type-helpers": "^2.2.10"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.2",
