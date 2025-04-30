@@ -24,11 +24,11 @@ const REST_START = Symbol('REST_START') as InjectionKey<{
   count: Ref<number>
   onChange?: (count: number, newValue: unknown) => void
 }>
-function provideRestState(initialState?: unknown[], onChange?: (count: number, value: unknown) => void) {
+function provideRestState(initialState: unknown[], onChange?: (count: number, value: unknown) => void) {
   const instance = getCurrentInstance()!
   const meta = {
     parent: instance,
-    state: initialState ?? ([] as unknown[]),
+    state: initialState,
     count: ref(0),
     onChange,
   }
@@ -56,7 +56,7 @@ function provideRestState(initialState?: unknown[], onChange?: (count: number, v
 
 export const withRestState = <C extends Component>(comp: C) => {
   return defineComponent(
-    (props: { initialState?: unknown[] } & ComponentProps<C>, { emit, attrs }) => {
+    (props: { initialState: unknown[] } & ComponentProps<C>, { emit, attrs }) => {
       const meta = provideRestState(props.initialState, (count, value) => {
         emit('change', { state: meta.state, count, value })
       })
@@ -94,7 +94,7 @@ export function useState<T>(initialState: T) {
   }
   const meta = inject(REST_START, null)
   if (!meta || meta.parent !== instance.parent) {
-    throw new Error('useState must be called within a StateContext')
+    throw new Error('useState must be called within a withRestState')
   }
   const index = meta.count.value
   meta.count.value++

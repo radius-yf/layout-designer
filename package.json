@@ -16,6 +16,7 @@
     "vue-component-type-helpers": "^2.2.10"
   },
   "devDependencies": {
+    "@vue/compiler-sfc": "^3.5.13",
     "@vitejs/plugin-vue": "^5.2.2",
     "@vue/tsconfig": "^0.7.0",
     "typescript": "~5.7.2",
