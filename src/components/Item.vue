@@ -1,24 +1,33 @@
 <template>
-  <div ref="drag" class="drag absolute" :style="toStylePx(position)" @mousedown.prevent="">
+  <div
+    ref="drag"
+    class="drag absolute select-none"
+    :style="toStylePx(position)"
+    v-drag="{
+      ...moveOrResize('move'),
+      onClick: (ev: PointerEventLike) => emit('activation', ev),
+    }"
+  >
     <div class="w-full h-full bg-red-500"></div>
-    <div class="handle-border t" @mousedown.prevent.stop="moveOrResize($event, 'move')"></div>
-    <div class="handle-border l" @mousedown.prevent.stop="moveOrResize($event, 'move')"></div>
-    <div class="handle-border r" @mousedown.prevent.stop="moveOrResize($event, 'move')"></div>
-    <div class="handle-border b" @mousedown.prevent.stop="moveOrResize($event, 'move')"></div>
+    <div class="handle-border t" v-drag.stop="moveOrResize('move')"></div>
+    <div class="handle-border l" v-drag.stop="moveOrResize('move')"></div>
+    <div class="handle-border r" v-drag.stop="moveOrResize('move')"></div>
+    <div class="handle-border b" v-drag.stop="moveOrResize('move')"></div>
 
-    <div class="handle lt" @mousedown.stop="moveOrResize($event, 'lt')"></div>
-    <div class="handle rt" @mousedown.stop="moveOrResize($event, 'rt')"></div>
-    <div class="handle lb" @mousedown.stop="moveOrResize($event, 'lb')"></div>
-    <div class="handle rb" @mousedown.stop="moveOrResize($event, 'rb')"></div>
-    <div class="handle lc" @mousedown.stop="moveOrResize($event, 'lc')"></div>
-    <div class="handle rc" @mousedown.stop="moveOrResize($event, 'rc')"></div>
-    <div class="handle tc" @mousedown.stop="moveOrResize($event, 'tc')"></div>
-    <div class="handle bc" @mousedown.stop="moveOrResize($event, 'bc')"></div>
+    <div class="handle lt" v-drag.stop="moveOrResize('lt')"></div>
+    <div class="handle rt" v-drag.stop="moveOrResize('rt')"></div>
+    <div class="handle lb" v-drag.stop="moveOrResize('lb')"></div>
+    <div class="handle rb" v-drag.stop="moveOrResize('rb')"></div>
+    <div class="handle lc" v-drag.stop="moveOrResize('lc')"></div>
+    <div class="handle rc" v-drag.stop="moveOrResize('rc')"></div>
+    <div class="handle tc" v-drag.stop="moveOrResize('tc')"></div>
+    <div class="handle bc" v-drag.stop="moveOrResize('bc')"></div>
   </div>
 </template>
 <script setup lang="ts">
 import { range } from '@/utils/range'
 import { onMounted, ref, useTemplateRef } from 'vue'
+import { vDrag, type DragHandlers, type PointerEventLike } from '@/utils/bindClickOrDrag'
 
 const props = withDefaults(
   defineProps<{
@@ -38,6 +47,7 @@ const emit = defineEmits<{
   start: [pos: { x: number; y: number; width: number; height: number }]
   move: [pos: { deltaX: number; deltaY: number }]
   end: [pos: { x: number; y: number; width: number; height: number }]
+  activation: [ev: PointerEventLike]
 }>()
 
 const position = ref(props.position)
@@ -48,30 +58,40 @@ onMounted(() => {
   const { width, height } = self.value!.parentElement!.getBoundingClientRect()
   currentRect.value = { width, height }
 })
-function moveOrResize(ev: MouseEvent, type: 'lt' | 'rt' | 'lb' | 'rb' | 'lc' | 'rc' | 'tc' | 'bc' | 'move') {
-  const init = {
-    x: position.value.left,
-    y: position.value.top,
-    width: position.value.width,
-    height: position.value.height,
-  }
-  emit('start', init)
-  const moveFn = fn[type](init)
-
-  mouseMoveDelta(
-    ev,
-    type === 'move'
-      ? (deltaX, deltaY) => {
-          emit('move', { deltaX, deltaY })
-        }
-      : (deltaX, deltaY) => {
-          const { top, left, width, height } = moveFn(deltaX, deltaY)
-          position.value.top = range(top, 0, currentRect.value.height - position.value.height)
-          position.value.left = range(left, 0, currentRect.value.width - position.value.width)
-          position.value.width = range(width, props.minWidth, currentRect.value.width - position.value.left)
-          position.value.height = range(height, props.minHeight, currentRect.value.height - position.value.top)
-        },
-    () => {
+function moveOrResize(type: 'lt' | 'rt' | 'lb' | 'rb' | 'lc' | 'rc' | 'tc' | 'bc' | 'move') {
+  let moveFn:
+    | ((
+        deltaX: number,
+        deltaY: number
+      ) => {
+        left: number
+        top: number
+        width: number
+        height: number
+      })
+    | null = null
+  return {
+    step: 20,
+    onDragStart() {
+      const init = {
+        x: position.value.left,
+        y: position.value.top,
+        width: position.value.width,
+        height: position.value.height,
+      }
+      moveFn = fn[type](init)
+      emit('start', init)
+    },
+    onDragging(delta) {
+      const { top, left, width, height } = moveFn!(delta.dx, delta.dy)
+      if (type !== 'move') {
+        position.value.top = range(top, 0, currentRect.value.height - position.value.height)
+        position.value.left = range(left, 0, currentRect.value.width - position.value.width)
+        position.value.width = range(width, props.minWidth, currentRect.value.width - position.value.left)
+        position.value.height = range(height, props.minHeight, currentRect.value.height - position.value.top)
+      }
+    },
+    onDragEnd() {
       emit('end', {
         x: position.value.left,
         y: position.value.top,
@@ -79,8 +99,7 @@ function moveOrResize(ev: MouseEvent, type: 'lt' | 'rt' | 'lb' | 'rb' | 'lc' | '
         height: position.value.height,
       })
     },
-    1
-  )
+  } satisfies DragHandlers
 }
 
 const fn = {
@@ -153,30 +172,6 @@ function toStylePx(obj: Record<string, number | string | undefined | null>): Rec
     }
   }
   return result
-}
-function mouseMoveDelta(
-  ev: MouseEvent,
-  move: (deltaX: number, deltaY: number) => void,
-  up: () => void,
-  step: number = 1
-) {
-  const state = {
-    startX: ev.clientX,
-    startY: ev.clientY,
-  }
-
-  document.addEventListener('mouseup', onUp)
-  document.addEventListener('mousemove', onMove)
-  function onMove(ev: MouseEvent) {
-    const deltaX = Math.round((ev.clientX - state.startX) / step) * step
-    const deltaY = Math.round((ev.clientY - state.startY) / step) * step
-    move(deltaX, deltaY)
-  }
-  function onUp() {
-    up()
-    document.removeEventListener('mousemove', onMove)
-    document.removeEventListener('mouseup', onUp)
-  }
 }
 </script>
 

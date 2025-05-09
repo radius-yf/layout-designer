@@ -18,31 +18,28 @@ import {
 } from 'vue'
 import type { ComponentProps } from 'vue-component-type-helpers'
 
-const REST_START = Symbol('REST_START') as InjectionKey<{
+const REST_STATE = Symbol('REST_STATE') as InjectionKey<{
   parent: ComponentInternalInstance
   state: unknown[]
   count: Ref<number>
   onChange?: (count: number, newValue: unknown) => void
 }>
-function provideRestState(initialState: unknown[], onChange?: (count: number, value: unknown) => void) {
+function provideRestState(initialState?: unknown[], onChange?: (count: number, value: unknown) => void) {
   const instance = getCurrentInstance()!
   const meta = {
     parent: instance,
-    state: initialState,
+    state: initialState ?? [],
     count: ref(0),
     onChange,
   }
-  provide(REST_START, meta)
+  provide(REST_STATE, meta)
   if (initialState) {
-    const handle = watch(
-      () => meta.count.value,
-      (val) => {
-        if (val > initialState.length) {
-          warn('An exception occurred while restoring the state')
-          handle.stop()
-        }
+    const handle = watch(meta.count, (val) => {
+      if (val > initialState.length) {
+        warn('An exception occurred while restoring the state')
+        handle.stop()
       }
-    )
+    })
     onMounted(() => {
       if (meta.count.value !== initialState.length) {
         warn('An exception occurred while restoring the state')
@@ -56,7 +53,7 @@ function provideRestState(initialState: unknown[], onChange?: (count: number, va
 
 export const withRestState = <C extends Component>(comp: C) => {
   return defineComponent(
-    (props: { initialState: unknown[] } & ComponentProps<C>, { emit, attrs }) => {
+    (props: { initialState?: unknown[] } & ComponentProps<C>, { emit, attrs }) => {
       const meta = provideRestState(props.initialState, (count, value) => {
         emit('change', { state: meta.state, count, value })
       })
@@ -92,7 +89,7 @@ export function useState<T>(initialState: T) {
   if (!instance) {
     throw new Error('useState must be called within a setup function')
   }
-  const meta = inject(REST_START, null)
+  const meta = inject(REST_STATE, null)
   if (!meta || meta.parent !== instance.parent) {
     throw new Error('useState must be called within a withRestState')
   }
@@ -102,10 +99,6 @@ export function useState<T>(initialState: T) {
   watchEffect(() => {
     meta.state[index] = unref(state)
   })
-  watch(
-    () => state.value,
-    () => meta.onChange?.(index, state.value),
-    { deep: true }
-  )
+  watch(state, () => meta.onChange?.(index, state.value), { deep: true })
   return state
 }

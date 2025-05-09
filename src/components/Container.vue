@@ -7,14 +7,9 @@
       :min-width="100"
       :min-height="100"
       :active="active.includes(index)"
-      @mousedown="handleClick($event, index)"
-      @start="moveIndex = index"
-      @move="
-        delta = {
-          deltaX: range($event.deltaX, deltaRange.x[0], deltaRange.x[1]),
-          deltaY: range($event.deltaY, deltaRange.y[0], deltaRange.y[1]),
-        }
-      "
+      @activation="handleClick($event, index)"
+      @start="onStart(index)"
+      @move="onMove"
       @end="onEnd"
       :style="active.includes(index) ? { transform: `translate(${delta.deltaX}px, ${delta.deltaY}px)` } : {}"
     ></Item>
@@ -24,6 +19,7 @@
 import { computed, ref, useTemplateRef } from 'vue'
 import Item from './Item.vue'
 import { range } from '@/utils/range'
+import type { PointerEventLike } from '@/utils/bindClickOrDrag'
 const active = ref<number[]>([])
 
 const container = useTemplateRef('container')
@@ -42,7 +38,7 @@ const deltaRange = computed(() => {
   }
 })
 
-function handleClick(e: MouseEvent, i: number) {
+function handleClick(e: PointerEventLike, i: number) {
   active.value = e.ctrlKey
     ? active.value.includes(i)
       ? active.value.filter((n) => n !== i)
@@ -55,14 +51,24 @@ const items = ref([
   { top: 0, left: 200, width: 100, height: 100 },
 ])
 
-const moveIndex = ref(-1)
 const delta = ref({ deltaX: 0, deltaY: 0 })
+
+function onStart(index: number) {
+  if (!active.value.includes(index)) {
+    active.value = [index]
+  }
+}
+function onMove(ev: { deltaX: number; deltaY: number }) {
+  delta.value = {
+    deltaX: range(ev.deltaX, deltaRange.value.x[0], deltaRange.value.x[1]),
+    deltaY: range(ev.deltaY, deltaRange.value.y[0], deltaRange.value.y[1]),
+  }
+}
 function onEnd() {
   active.value.forEach((i) => {
     items.value[i].left += delta.value.deltaX
     items.value[i].top += delta.value.deltaY
   })
-  moveIndex.value = -1
   delta.value = { deltaX: 0, deltaY: 0 }
 }
 </script>

@@ -10,4 +10,7 @@ export default defineConfig({
       '@': '/src',
     },
   },
+  define: {
+    __VUE_OPTIONS_API__: false,
+  }
 })

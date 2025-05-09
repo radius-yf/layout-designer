@@ -1,5 +1,13 @@
-# Vue 3 + TypeScript + Vite
+# Layout Designer
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+一个所见即所得的布局设计工具
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+## 核心功能进度
+- [x] 状态恢复
+- [x] 拖拽功能允许多选
+- [ ] 画布容器组件开发
+- [ ] 组件的描述信息，组件列表侧边栏
+- [ ] 组件的配置功能，组件配置侧边栏
+- [ ] 组件的事件功能，组件联动方案
+- [ ] 预览功能
+
