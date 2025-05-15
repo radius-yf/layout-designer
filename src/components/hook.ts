@@ -1,0 +1,125 @@
+import type { PointerEventLike } from '@/utils/bindClickOrDrag'
+import { range } from '@/utils/range'
+import { useResizeObserver, type MaybeComputedElementRef } from '@vueuse/core'
+import { computed, inject, provide, ref, useTemplateRef, type InjectionKey, type Ref, type ShallowRef } from 'vue'
+
+const DRAG_CONTAINER = Symbol('DRAG_CONTAINER') as InjectionKey<{
+  createDragItem: (pos: { top: number; left: number; width: number; height: number }) => {
+    state: Ref<{
+      active: boolean
+      top: number
+      left: number
+      width: number
+      height: number
+    }>
+    onActivation(e: PointerEventLike): void
+    onStart(): void
+    onMove(ev: { deltaX: number; deltaY: number }): void
+    onEnd(): void
+  }
+  delta: Ref<{
+    deltaX: number
+    deltaY: number
+  }>
+  parentRect: Ref<DOMRectReadOnly | undefined>
+}>
+interface DragItem {
+  top: number
+  left: number
+  width: number
+  height: number
+  active: boolean
+}
+
+export function provideDragContainer(container: string | Readonly<ShallowRef<HTMLDivElement | null>>) {
+  const c = typeof container === 'string' ? useTemplateRef<HTMLElement>(container) : container
+
+  const items = ref<DragItem[]>([])
+  // 多选时的移动功能
+  const delta = ref({ deltaX: 0, deltaY: 0 })
+
+  function createDragItem(pos: { top: number; left: number; width: number; height: number }) {
+    const state = ref({
+      ...pos,
+      active: false,
+    })
+    items.value.push(state.value)
+
+    const deltaRange = computed(() => {
+      const { width, height } = c.value?.getBoundingClientRect() ?? { width: 0, height: 0 }
+      const active = items.value.filter((i) => i.active)
+      const left = Math.min(...active.map((i) => i.left))
+      const top = Math.min(...active.map((i) => i.top))
+      const right = Math.max(...active.map((i) => i.left + i.width))
+      const bottom = Math.max(...active.map((i) => i.top + i.height))
+      console.log(width, height, left, top, right, bottom)
+
+      return {
+        x: [-left, width - right],
+        y: [-top, height - bottom],
+      }
+    })
+    return {
+      state,
+      onActivation(e: PointerEventLike) {
+        if (e.ctrlKey) {
+          state.value.active = !state.value.active
+        } else {
+          items.value.forEach((i) => (i.active = false))
+          state.value.active = true
+        }
+      },
+      onStart() {
+        if (!state.value.active) {
+          items.value.forEach((i) => (i.active = false))
+          state.value.active = true
+        }
+      },
+      onMove(ev: { deltaX: number; deltaY: number }) {
+        delta.value = {
+          deltaX: range(ev.deltaX, deltaRange.value.x[0], deltaRange.value.x[1]),
+          deltaY: range(ev.deltaY, deltaRange.value.y[0], deltaRange.value.y[1]),
+        }
+      },
+      onEnd() {
+        items.value
+          .filter((i) => i.active)
+          .forEach((i) => {
+            i.left += delta.value.deltaX
+            i.top += delta.value.deltaY
+          })
+        delta.value = { deltaX: 0, deltaY: 0 }
+      },
+    }
+  }
+
+  provide(DRAG_CONTAINER, {
+    createDragItem,
+    delta,
+    parentRect: useResize(c),
+  })
+
+  return {
+    items,
+  }
+}
+
+export function useDrag(pos: { top: number; left: number; width: number; height: number }) {
+  const result = inject(DRAG_CONTAINER, null)
+  if (!result) {
+    throw new Error('inject DRAG_CONTAINER failed')
+  }
+  const { createDragItem, ...rest } = result
+  return {
+    ...createDragItem(pos),
+    ...rest,
+  }
+}
+
+function useResize(container: MaybeComputedElementRef) {
+  const currentRect = ref<DOMRectReadOnly>()
+  useResizeObserver(container, (entries) => {
+    currentRect.value = entries[0].contentRect
+  })
+  return currentRect
+}

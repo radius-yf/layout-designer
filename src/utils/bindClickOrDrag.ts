@@ -6,7 +6,7 @@ interface DragDelta {
 }
 export interface DragHandlers {
   onClick?: (e: PointerEventLike) => void
-  onDragStart?: (e: PointerEventLike) => void
+  onDragStart?: (start: { x: number; y: number }, e: PointerEventLike) => void
   onDragging?: (delta: DragDelta, e: PointerEventLike) => void
   onDragEnd?: (e: PointerEventLike) => void
   threshold?: number
@@ -32,7 +32,7 @@ export const vDrag = {
           onDragging?.({ dx, dy }, e)
         } else if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
           isDragging = true
-          onDragStart?.(originEvent)
+          onDragStart?.({ x: startX, y: startY }, originEvent)
         }
       }
 

@@ -2,13 +2,13 @@
   <div
     ref="drag"
     class="drag absolute select-none"
-    :style="toStylePx(position)"
+    :style="toStylePx(style)"
     v-drag="{
       ...moveOrResize('move'),
-      onClick: (ev: PointerEventLike) => emit('activation', ev),
+      onClick: onActivation,
     }"
   >
-    <div class="w-full h-full bg-red-500"></div>
+    <slot></slot>
     <div class="handle-border t" v-drag.stop="moveOrResize('move')"></div>
     <div class="handle-border l" v-drag.stop="moveOrResize('move')"></div>
     <div class="handle-border r" v-drag.stop="moveOrResize('move')"></div>
@@ -25,39 +25,38 @@
   </div>
 </template>
 <script setup lang="ts">
+import { vDrag, type DragHandlers } from '@/utils/bindClickOrDrag'
 import { range } from '@/utils/range'
-import { onMounted, ref, useTemplateRef } from 'vue'
-import { vDrag, type DragHandlers, type PointerEventLike } from '@/utils/bindClickOrDrag'
+import { computed } from 'vue'
+import { useDrag } from './hook'
 
 const props = withDefaults(
   defineProps<{
-    active?: boolean
     position: { top: number; left: number; width: number; height: number }
     minWidth?: number
     minHeight?: number
+    step?: number
   }>(),
   {
-    active: true,
     minWidth: 0,
     minHeight: 0,
+    step: 1,
   }
 )
-const emit = defineEmits<{
-  // change: [pos: { top: number; left: number; width: number; height: number }]
-  start: [pos: { x: number; y: number; width: number; height: number }]
-  move: [pos: { deltaX: number; deltaY: number }]
-  end: [pos: { x: number; y: number; width: number; height: number }]
-  activation: [ev: PointerEventLike]
-}>()
 
-const position = ref(props.position)
+const { state, delta, parentRect, onActivation, onStart, onEnd, onMove } = useDrag(props.position)
 
-const self = useTemplateRef('drag')
-const currentRect = ref({ width: 0, height: 0 })
-onMounted(() => {
-  const { width, height } = self.value!.parentElement!.getBoundingClientRect()
-  currentRect.value = { width, height }
+const style = computed(() => {
+  const { top, left, width, height } = state.value
+  return {
+    top,
+    left,
+    width,
+    height,
+    transform: state.value.active ? `translate(${delta.value.deltaX}px, ${delta.value.deltaY}px)` : '',
+  }
 })
+
 function moveOrResize(type: 'lt' | 'rt' | 'lb' | 'rb' | 'lc' | 'rc' | 'tc' | 'bc' | 'move') {
   let moveFn:
     | ((
@@ -71,40 +70,36 @@ function moveOrResize(type: 'lt' | 'rt' | 'lb' | 'rb' | 'lc' | 'rc' | 'tc' | 'bc
       })
     | null = null
   return {
-    step: 20,
+    step: props.step,
     onDragStart() {
       const init = {
-        x: position.value.left,
-        y: position.value.top,
-        width: position.value.width,
-        height: position.value.height,
+        x: state.value.left,
+        y: state.value.top,
+        width: state.value.width,
+        height: state.value.height,
       }
       moveFn = fn[type](init)
-      emit('start', init)
+      onStart()
     },
     onDragging(delta) {
-      const { top, left, width, height } = moveFn!(delta.dx, delta.dy)
-      if (type !== 'move') {
-        position.value.top = range(top, 0, currentRect.value.height - position.value.height)
-        position.value.left = range(left, 0, currentRect.value.width - position.value.width)
-        position.value.width = range(width, props.minWidth, currentRect.value.width - position.value.left)
-        position.value.height = range(height, props.minHeight, currentRect.value.height - position.value.top)
+      if (type === 'move') {
+        onMove({ deltaX: delta.dx, deltaY: delta.dy })
+      } else {
+        const { top, left, width, height } = moveFn!(delta.dx, delta.dy)
+        state.value.top = range(top, 0, parentRect.value!.height - state.value.height)
+        state.value.left = range(left, 0, parentRect.value!.width - state.value.width)
+        state.value.width = range(width, props.minWidth, parentRect.value!.width - state.value.left)
+        state.value.height = range(height, props.minHeight, parentRect.value!.height - state.value.top)
       }
     },
     onDragEnd() {
-      emit('end', {
-        x: position.value.left,
-        y: position.value.top,
-        width: position.value.width,
-        height: position.value.height,
-      })
+      onEnd()
     },
   } satisfies DragHandlers
 }
 
 const fn = {
   move: (init: { x: number; y: number; width: number; height: number }) => (deltaX: number, deltaY: number) => {
-    emit('move', { deltaX, deltaY })
     return {
       left: init.x + deltaX,
       top: init.y + deltaY,
@@ -177,42 +172,58 @@ function toStylePx(obj: Record<string, number | string | undefined | null>): Rec
 
 <style scoped>
 .drag {
-  border: 1px dashed;
-  border-color: v-bind('props.active ? "black" : "transparent"');
+  --visible: v-bind('state.active ? "block" : "none"');
   --size: 8px;
 }
 .handle-border {
-  display: v-bind('props.active ? "block" : "none"');
+  display: var(--visible);
   position: absolute;
   cursor: move;
+  box-sizing: border-box;
+}
+.handle-border:is(.t, .b)::before {
+  content: '';
+  display: block;
+  width: 100%;
+  border-top: 1px dashed black;
+}
+.handle-border:is(.l, .r)::before {
+  content: '';
+  display: block;
+  height: 100%;
+  border-left: 1px dashed black;
 }
 .handle-border.t {
   top: calc(var(--size) / -2);
   left: calc(var(--size) / 2);
   width: calc(100% - var(--size));
+  padding-top: calc(var(--size) / 2 - 1px);
   height: var(--size);
 }
 .handle-border.l {
   top: calc(var(--size) / 2);
   left: calc(var(--size) / -2);
   width: var(--size);
+  padding-left: calc(var(--size) / 2 - 1px);
   height: calc(100% - var(--size));
 }
 .handle-border.r {
   top: calc(var(--size) / 2);
   right: calc(var(--size) / -2);
   width: var(--size);
+  padding-left: calc(var(--size) / 2);
   height: calc(100% - var(--size));
 }
 .handle-border.b {
   bottom: calc(var(--size) / -2);
   left: calc(var(--size) / 2);
   width: calc(100% - var(--size));
+  padding-top: calc(var(--size) / 2);
   height: var(--size);
 }
 
 .handle {
-  display: v-bind('props.active ? "block" : "none"');
+  display: var(--visible);
   position: absolute;
   width: var(--size);
   height: var(--size);
