@@ -2,6 +2,7 @@
   <div
     ref="drag"
     class="drag absolute select-none"
+    :class="{ 'z-10': state.active }"
     :style="toStylePx(style)"
     v-drag="{
       ...moveOrResize('move'),
@@ -38,8 +39,8 @@ const props = withDefaults(
     step?: number
   }>(),
   {
-    minWidth: 0,
-    minHeight: 0,
+    minWidth: 4,
+    minHeight: 4,
     step: 1,
   }
 )
@@ -85,11 +86,7 @@ function moveOrResize(type: 'lt' | 'rt' | 'lb' | 'rb' | 'lc' | 'rc' | 'tc' | 'bc
       if (type === 'move') {
         onMove({ deltaX: delta.dx, deltaY: delta.dy })
       } else {
-        const { top, left, width, height } = moveFn!(delta.dx, delta.dy)
-        state.value.top = range(top, 0, parentRect.value!.height - state.value.height)
-        state.value.left = range(left, 0, parentRect.value!.width - state.value.width)
-        state.value.width = range(width, props.minWidth, parentRect.value!.width - state.value.left)
-        state.value.height = range(height, props.minHeight, parentRect.value!.height - state.value.top)
+        Object.assign(state.value, moveFn!(delta.dx, delta.dy))
       }
     },
     onDragEnd() {
@@ -99,61 +96,54 @@ function moveOrResize(type: 'lt' | 'rt' | 'lb' | 'rb' | 'lc' | 'rc' | 'tc' | 'bc
 }
 
 const fn = {
-  move: (init: { x: number; y: number; width: number; height: number }) => (deltaX: number, deltaY: number) => {
-    return {
-      left: init.x + deltaX,
-      top: init.y + deltaY,
-      width: init.width,
-      height: init.height,
-    }
-  },
+  move: () => null,
   lt: (init: { x: number; y: number; width: number; height: number }) => (deltaX: number, deltaY: number) => ({
-    left: init.x + deltaX,
-    top: init.y + deltaY,
-    width: init.width - deltaX,
-    height: init.height - deltaY,
+    left: range(init.x + deltaX, 0, init.x + init.width - props.minWidth),
+    top: range(init.y + deltaY, 0, init.y + init.height - props.minHeight),
+    width: range(init.width - deltaX, props.minWidth, init.x + init.width),
+    height: range(init.height - deltaY, props.minHeight, init.y + init.height),
   }),
   rt: (init: { x: number; y: number; width: number; height: number }) => (deltaX: number, deltaY: number) => ({
     left: init.x,
-    top: init.y + deltaY,
-    width: init.width + deltaX,
-    height: init.height - deltaY,
+    top: range(init.y + deltaY, 0, init.y + init.height - props.minHeight),
+    width: range(init.width + deltaX, props.minWidth, parentRect.value!.width - init.x),
+    height: range(init.height - deltaY, props.minHeight, init.y + init.height),
   }),
   lb: (init: { x: number; y: number; width: number; height: number }) => (deltaX: number, deltaY: number) => ({
-    left: init.x + deltaX,
+    left: range(init.x + deltaX, 0, init.x + init.width - props.minWidth),
     top: init.y,
-    width: init.width - deltaX,
-    height: init.height + deltaY,
+    width: range(init.width - deltaX, props.minWidth, init.x + init.width),
+    height: range(init.height + deltaY, props.minHeight, parentRect.value!.height - init.y),
   }),
   rb: (init: { x: number; y: number; width: number; height: number }) => (deltaX: number, deltaY: number) => ({
     left: init.x,
     top: init.y,
-    width: init.width + deltaX,
-    height: init.height + deltaY,
+    width: range(init.width + deltaX, props.minWidth, parentRect.value!.width - init.x),
+    height: range(init.height + deltaY, props.minHeight, parentRect.value!.height - init.y),
   }),
   lc: (init: { x: number; y: number; width: number; height: number }) => (deltaX: number, _deltaY: number) => ({
-    left: init.x + deltaX,
+    left: range(init.x + deltaX, 0, init.x + init.width - props.minWidth),
     top: init.y,
-    width: init.width - deltaX,
+    width: range(init.width - deltaX, props.minWidth, init.x + init.width),
     height: init.height,
   }),
   rc: (init: { x: number; y: number; width: number; height: number }) => (deltaX: number, _deltaY: number) => ({
     left: init.x,
     top: init.y,
-    width: init.width + deltaX,
+    width: range(init.width + deltaX, props.minWidth, parentRect.value!.width - init.x),
     height: init.height,
   }),
   tc: (init: { x: number; y: number; width: number; height: number }) => (_deltaX: number, deltaY: number) => ({
     left: init.x,
-    top: init.y + deltaY,
+    top: range(init.y + deltaY, 0, init.y + init.height - props.minHeight),
     width: init.width,
-    height: init.height - deltaY,
+    height: range(init.height - deltaY, props.minHeight, init.y + init.height),
   }),
   bc: (init: { x: number; y: number; width: number; height: number }) => (_deltaX: number, deltaY: number) => ({
     left: init.x,
     top: init.y,
     width: init.width,
-    height: init.height + deltaY,
+    height: range(init.height + deltaY, props.minHeight, parentRect.value!.height - init.y),
   }),
 }
 

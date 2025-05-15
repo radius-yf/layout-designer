@@ -1,6 +1,6 @@
+import { useResize } from '@/hooks/useResize'
 import type { PointerEventLike } from '@/utils/bindClickOrDrag'
 import { range } from '@/utils/range'
-import { useResizeObserver, type MaybeComputedElementRef } from '@vueuse/core'
 import { computed, inject, provide, ref, useTemplateRef, type InjectionKey, type Ref, type ShallowRef } from 'vue'
 
 const DRAG_CONTAINER = Symbol('DRAG_CONTAINER') as InjectionKey<{
@@ -52,7 +52,6 @@ export function provideDragContainer(container: string | Readonly<ShallowRef<HTM
       const top = Math.min(...active.map((i) => i.top))
       const right = Math.max(...active.map((i) => i.left + i.width))
       const bottom = Math.max(...active.map((i) => i.top + i.height))
-      console.log(width, height, left, top, right, bottom)
 
       return {
         x: [-left, width - right],
@@ -114,12 +113,4 @@ export function useDrag(pos: { top: number; left: number; width: number; height:
     ...createDragItem(pos),
     ...rest,
   }
-}
-
-function useResize(container: MaybeComputedElementRef) {
-  const currentRect = ref<DOMRectReadOnly>()
-  useResizeObserver(container, (entries) => {
-    currentRect.value = entries[0].contentRect
-  })
-  return currentRect
 }

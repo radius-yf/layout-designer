@@ -1,7 +1,7 @@
 <template>
   <div class="relative overflow-hidden" ref="container" v-drag.self="selection">
     <slot></slot>
-    <div class="absolute border-dashed border-1 border-blue-500 bg-blue-500/20" :style="style"></div>
+    <div class="absolute border-dashed border-1 border-blue-500 bg-blue-500/20 z-50" :style="style"></div>
   </div>
 </template>
 <script lang="ts"></script>
@@ -24,7 +24,7 @@ const style = computed(() =>
       }
     : { display: 'none' }
 )
-const selection = {
+const selection: DragHandlers = {
   onDragStart(st) {
     start.value = st
   },
@@ -43,7 +43,7 @@ const selection = {
   onClick() {
     items.value.forEach((i) => (i.active = false))
   },
-} satisfies DragHandlers
+}
 
 function onSelected(rect: { x: [number, number]; y: [number, number] }) {
   items.value.forEach((item) => {

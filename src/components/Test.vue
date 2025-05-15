@@ -5,7 +5,7 @@
   </div>
 </template>
 
-<script setup lang="ts" hoc="../hooks/state#withRestState">
+<script setup lang="ts" hoc="@/hooks/state#withRestState">
 import { useState } from '../hooks/state'
 
 const props = defineProps<{ msg: string }>()
