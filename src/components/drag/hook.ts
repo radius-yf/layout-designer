@@ -3,15 +3,16 @@ import type { PointerEventLike } from '@/utils/bindClickOrDrag'
 import { range } from '@/utils/range'
 import { computed, inject, provide, ref, useTemplateRef, type InjectionKey, type Ref, type ShallowRef } from 'vue'
 
+export interface DragItem {
+  top: number
+  left: number
+  width: number
+  height: number
+}
+
 const DRAG_CONTAINER = Symbol('DRAG_CONTAINER') as InjectionKey<{
-  createDragItem: (pos: { top: number; left: number; width: number; height: number }) => {
-    state: Ref<{
-      active: boolean
-      top: number
-      left: number
-      width: number
-      height: number
-    }>
+  createDragItem: (pos: DragItem) => {
+    state: Ref<{ pos: DragItem; active: boolean }>
     onActivation(e: PointerEventLike): void
     onStart(): void
     onMove(ev: { deltaX: number; deltaY: number }): void
@@ -23,31 +24,20 @@ const DRAG_CONTAINER = Symbol('DRAG_CONTAINER') as InjectionKey<{
   }>
   parentRect: Ref<DOMRectReadOnly | undefined>
 }>
-interface DragItem {
-  top: number
-  left: number
-  width: number
-  height: number
-  active: boolean
-}
-
 export function provideDragContainer(container: string | Readonly<ShallowRef<HTMLDivElement | null>>) {
   const c = typeof container === 'string' ? useTemplateRef<HTMLElement>(container) : container
 
-  const items = ref<DragItem[]>([])
+  const items = ref<{ pos: DragItem; active: boolean }[]>([])
   // 多选时的移动功能
   const delta = ref({ deltaX: 0, deltaY: 0 })
 
-  function createDragItem(pos: { top: number; left: number; width: number; height: number }) {
-    const state = ref({
-      ...pos,
-      active: false,
-    })
+  function createDragItem(pos: DragItem) {
+    const state = ref({ pos, active: false })
     items.value.push(state.value)
 
     const deltaRange = computed(() => {
       const { width, height } = c.value?.getBoundingClientRect() ?? { width: 0, height: 0 }
-      const active = items.value.filter((i) => i.active)
+      const active = items.value.filter((i) => i.active).map((i) => i.pos)
       const left = Math.min(...active.map((i) => i.left))
       const top = Math.min(...active.map((i) => i.top))
       const right = Math.max(...active.map((i) => i.left + i.width))
@@ -84,8 +74,8 @@ export function provideDragContainer(container: string | Readonly<ShallowRef<HTM
         items.value
           .filter((i) => i.active)
           .forEach((i) => {
-            i.left += delta.value.deltaX
-            i.top += delta.value.deltaY
+            i.pos.left += delta.value.deltaX
+            i.pos.top += delta.value.deltaY
           })
         delta.value = { deltaX: 0, deltaY: 0 }
       },
@@ -103,7 +93,7 @@ export function provideDragContainer(container: string | Readonly<ShallowRef<HTM
   }
 }
 
-export function useDrag(pos: { top: number; left: number; width: number; height: number }) {
+export function useDrag(pos: DragItem) {
   const result = inject(DRAG_CONTAINER, null)
   if (!result) {
     throw new Error('inject DRAG_CONTAINER failed')

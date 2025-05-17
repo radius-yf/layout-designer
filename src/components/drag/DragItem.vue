@@ -4,12 +4,16 @@
     class="drag absolute select-none"
     :class="{ 'z-10': state.active }"
     :style="toStylePx(style)"
-    v-drag="{
+    v-drag.stop="{
       ...moveOrResize('move'),
       onClick: onActivation,
     }"
   >
     <slot></slot>
+
+    <div class="absolute top-1 -right-1 translate-x-full" v-if="state.active">
+      <slot name="handle"></slot>
+    </div>
     <div class="handle-border t" v-drag.stop="moveOrResize('move')"></div>
     <div class="handle-border l" v-drag.stop="moveOrResize('move')"></div>
     <div class="handle-border r" v-drag.stop="moveOrResize('move')"></div>
@@ -29,11 +33,10 @@
 import { vDrag, type DragHandlers } from '@/utils/bindClickOrDrag'
 import { range } from '@/utils/range'
 import { computed } from 'vue'
-import { useDrag } from './hook'
+import { useDrag, type DragItem } from './hook'
 
 const props = withDefaults(
   defineProps<{
-    position: { top: number; left: number; width: number; height: number }
     minWidth?: number
     minHeight?: number
     step?: number
@@ -44,11 +47,14 @@ const props = withDefaults(
     step: 1,
   }
 )
+const pos = defineModel<DragItem>('pos', {
+  required: true,
+})
 
-const { state, delta, parentRect, onActivation, onStart, onEnd, onMove } = useDrag(props.position)
+const { state, delta, parentRect, onActivation, onStart, onEnd, onMove } = useDrag(pos.value)
 
 const style = computed(() => {
-  const { top, left, width, height } = state.value
+  const { top, left, width, height } = state.value.pos
   return {
     top,
     left,
@@ -74,10 +80,10 @@ function moveOrResize(type: 'lt' | 'rt' | 'lb' | 'rb' | 'lc' | 'rc' | 'tc' | 'bc
     step: props.step,
     onDragStart() {
       const init = {
-        x: state.value.left,
-        y: state.value.top,
-        width: state.value.width,
-        height: state.value.height,
+        x: state.value.pos.left,
+        y: state.value.pos.top,
+        width: state.value.pos.width,
+        height: state.value.pos.height,
       }
       moveFn = fn[type](init)
       onStart()
@@ -86,7 +92,7 @@ function moveOrResize(type: 'lt' | 'rt' | 'lb' | 'rb' | 'lc' | 'rc' | 'tc' | 'bc
       if (type === 'move') {
         onMove({ deltaX: delta.dx, deltaY: delta.dy })
       } else {
-        Object.assign(state.value, moveFn!(delta.dx, delta.dy))
+        Object.assign(state.value.pos, moveFn!(delta.dx, delta.dy))
       }
     },
     onDragEnd() {

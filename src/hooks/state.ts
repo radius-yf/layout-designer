@@ -53,17 +53,17 @@ function provideRestState(initialState?: unknown[], onChange?: (count: number, v
 
 export const withRestState = <C extends Component>(comp: C) => {
   return defineComponent(
-    (props: { initialState?: unknown[] } & ComponentProps<C>, { emit, attrs }) => {
-      const meta = provideRestState(props.initialState, (count, value) => {
+    (props: { state?: unknown[] } & ComponentProps<C>, { emit, attrs }) => {
+      const meta = provideRestState(props.state, (count, value) => {
         emit('change', { state: meta.state, count, value })
       })
       const id = useId()
       const count = ref(0)
 
       watch(
-        () => props.initialState,
+        () => props.state,
         () => {
-          meta.state = props.initialState ?? []
+          meta.state = props.state ?? []
           meta.count.value = 0
           count.value++
         }
@@ -71,7 +71,7 @@ export const withRestState = <C extends Component>(comp: C) => {
       return () => h(comp, { key: `${id}-${count.value}`, ...attrs })
     },
     {
-      props: ['initialState'],
+      props: ['state'],
       emits: {
         change: (_event: { state: unknown[]; count: number; value: unknown }) => true,
       },
@@ -84,7 +84,9 @@ export const withRestState = <C extends Component>(comp: C) => {
 // 1. useState必须在setup顶层调用，即不能在if/for/while等语句中使用
 //    可以在自定义hook中使用useState，但是自定义hook也必须在setup顶层调用，与React的规则一样。
 // 2. 使用useState的组件必须用withRestState包裹
-export function useState<T>(initialState: T) {
+export function useState<T>(): Ref<T | undefined>
+export function useState<T>(initialState: T): Ref<T>
+export function useState<T>(initialState?: T) {
   const instance = getCurrentInstance()
   if (!instance) {
     throw new Error('useState must be called within a setup function')
