@@ -8,22 +8,25 @@
 </template>
 <script setup lang="ts" hoc="@/hooks/state#withRestState">
 import { useState } from '@/hooks/state'
-import DragItem from './drag/DragItem.vue'
-import type { Child } from './type'
-import { inject, type Component } from 'vue'
+import DragItem from '../drag/DragItem.vue'
+import { useComponent, useEndPoint } from './hooks/context'
+import type { Child } from '../type'
+import { computed } from 'vue'
 
 const emit = defineEmits(['remove'])
-const props = defineProps<{ option: Child; lastPoint: { x: number; y: number } }>()
-const getComponent = inject('getComponent') as (name: string) => Component
-const Comp = getComponent(props.option.name)
+const props = defineProps<{ option: Child }>()
+const getComp = useComponent()
+const Comp = computed(() => getComp.value?.(props.option.name))
+
+const endPoint = useEndPoint()
 
 const pos = useState(init())
 function init() {
   const minWidth = 100
   const minHeight = 100
   return {
-    top: props.lastPoint.y - minHeight / 2,
-    left: props.lastPoint.x - minWidth / 2,
+    top: endPoint.value.y - minHeight / 2,
+    left: endPoint.value.x - minWidth / 2,
     width: minWidth,
     height: minHeight,
   }

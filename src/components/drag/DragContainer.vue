@@ -1,5 +1,5 @@
 <template>
-  <div class="relative overflow-hidden" ref="container" v-drag.self="disableSelection ? {} : selection">
+  <div class="relative overflow-hidden" ref="container" v-drag.self="{ ...selection, disabled: disableSelection }">
     <slot></slot>
     <div class="absolute border-dashed border-1 border-blue-500 bg-blue-500/20 z-50" :style="style"></div>
   </div>
@@ -9,7 +9,7 @@
 import { computed, ref } from 'vue'
 import { provideDragContainer } from './hook'
 import { vDrag, type DragHandlers } from '@/utils/bindClickOrDrag'
-const { disableSelection } = withDefaults(defineProps<{ disableSelection?: boolean }>(), { disableSelection: false })
+defineProps<{ disableSelection?: boolean }>()
 
 const { items } = provideDragContainer('container')
 

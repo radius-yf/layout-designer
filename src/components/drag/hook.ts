@@ -3,7 +3,7 @@ import type { PointerEventLike } from '@/utils/bindClickOrDrag'
 import { range } from '@/utils/range'
 import { computed, inject, provide, ref, useTemplateRef, type InjectionKey, type Ref, type ShallowRef } from 'vue'
 
-export interface DragItem {
+export interface PositionItem {
   top: number
   left: number
   width: number
@@ -11,8 +11,8 @@ export interface DragItem {
 }
 
 const DRAG_CONTAINER = Symbol('DRAG_CONTAINER') as InjectionKey<{
-  createDragItem: (pos: DragItem) => {
-    state: Ref<{ pos: DragItem; active: boolean }>
+  createDragItem: (pos: Ref<PositionItem>) => {
+    state: Ref<{ pos: PositionItem; active: boolean }>
     onActivation(e: PointerEventLike): void
     onStart(): void
     onMove(ev: { deltaX: number; deltaY: number }): void
@@ -27,11 +27,11 @@ const DRAG_CONTAINER = Symbol('DRAG_CONTAINER') as InjectionKey<{
 export function provideDragContainer(container: string | Readonly<ShallowRef<HTMLDivElement | null>>) {
   const c = typeof container === 'string' ? useTemplateRef<HTMLElement>(container) : container
 
-  const items = ref<{ pos: DragItem; active: boolean }[]>([])
+  const items = ref<{ pos: PositionItem; active: boolean }[]>([])
   // 多选时的移动功能
   const delta = ref({ deltaX: 0, deltaY: 0 })
 
-  function createDragItem(pos: DragItem) {
+  function createDragItem(pos: Ref<PositionItem>) {
     const state = ref({ pos, active: false })
     items.value.push(state.value)
 
@@ -93,7 +93,7 @@ export function provideDragContainer(container: string | Readonly<ShallowRef<HTM
   }
 }
 
-export function useDrag(pos: DragItem) {
+export function useDrag(pos: Ref<PositionItem>) {
   const result = inject(DRAG_CONTAINER, null)
   if (!result) {
     throw new Error('inject DRAG_CONTAINER failed')

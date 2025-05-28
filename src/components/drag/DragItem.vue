@@ -4,42 +4,43 @@
     class="drag absolute select-none"
     :class="{ 'z-10': state.active }"
     :style="toStylePx(style)"
-    v-drag.stop="{
-      ...moveOrResize('move'),
-      onClick: onActivation,
-    }"
+    v-drag.stop="containerMove"
   >
     <slot></slot>
 
     <div class="absolute top-1 -right-1 translate-x-full" v-if="state.active">
       <slot name="handle"></slot>
     </div>
-    <div class="handle-border t" v-drag.stop="moveOrResize('move')"></div>
-    <div class="handle-border l" v-drag.stop="moveOrResize('move')"></div>
-    <div class="handle-border r" v-drag.stop="moveOrResize('move')"></div>
-    <div class="handle-border b" v-drag.stop="moveOrResize('move')"></div>
+    <div v-if="!handles || handles.includes('t')" class="handle-border t" v-drag.stop="moveOrResize('move')"></div>
+    <div v-if="!handles || handles.includes('l')" class="handle-border l" v-drag.stop="moveOrResize('move')"></div>
+    <div v-if="!handles || handles.includes('r')" class="handle-border r" v-drag.stop="moveOrResize('move')"></div>
+    <div v-if="!handles || handles.includes('b')" class="handle-border b" v-drag.stop="moveOrResize('move')"></div>
 
-    <div class="handle lt" v-drag.stop="moveOrResize('lt')"></div>
-    <div class="handle rt" v-drag.stop="moveOrResize('rt')"></div>
-    <div class="handle lb" v-drag.stop="moveOrResize('lb')"></div>
-    <div class="handle rb" v-drag.stop="moveOrResize('rb')"></div>
-    <div class="handle lc" v-drag.stop="moveOrResize('lc')"></div>
-    <div class="handle rc" v-drag.stop="moveOrResize('rc')"></div>
-    <div class="handle tc" v-drag.stop="moveOrResize('tc')"></div>
-    <div class="handle bc" v-drag.stop="moveOrResize('bc')"></div>
+    <div v-if="!handles || handles.includes('lt')" class="handle lt" v-drag.stop="moveOrResize('lt')"></div>
+    <div v-if="!handles || handles.includes('rt')" class="handle rt" v-drag.stop="moveOrResize('rt')"></div>
+    <div v-if="!handles || handles.includes('lb')" class="handle lb" v-drag.stop="moveOrResize('lb')"></div>
+    <div v-if="!handles || handles.includes('rb')" class="handle rb" v-drag.stop="moveOrResize('rb')"></div>
+    <div v-if="!handles || handles.includes('lc')" class="handle lc" v-drag.stop="moveOrResize('lc')"></div>
+    <div v-if="!handles || handles.includes('rc')" class="handle rc" v-drag.stop="moveOrResize('rc')"></div>
+    <div v-if="!handles || handles.includes('tc')" class="handle tc" v-drag.stop="moveOrResize('tc')"></div>
+    <div v-if="!handles || handles.includes('bc')" class="handle bc" v-drag.stop="moveOrResize('bc')"></div>
   </div>
 </template>
 <script setup lang="ts">
-import { vDrag, type DragHandlers } from '@/utils/bindClickOrDrag'
+import { vDrag, type DragHandlers, type PointerEventLike } from '@/utils/bindClickOrDrag'
 import { range } from '@/utils/range'
 import { computed } from 'vue'
-import { useDrag, type DragItem } from './hook'
+import { useDrag, type PositionItem } from './hook'
+import { toStylePx } from './utils'
+
+type HandleType = 'lt' | 'rt' | 'lb' | 'rb' | 'lc' | 'rc' | 'tc' | 'bc' | 't' | 'l' | 'r' | 'b'
 
 const props = withDefaults(
   defineProps<{
     minWidth?: number
     minHeight?: number
     step?: number
+    handles?: HandleType[]
   }>(),
   {
     minWidth: 4,
@@ -47,22 +48,23 @@ const props = withDefaults(
     step: 1,
   }
 )
-const pos = defineModel<DragItem>('pos', {
+const emits = defineEmits<{
+  (e: 'activation', ev: boolean): void
+  (e: 'start', ev: { type: string; ev: PointerEventLike }): void
+  (e: 'end', ev: { type: string; ev: PointerEventLike }): void
+  (e: 'move', ev: { type: string; pos: PositionItem; ev: PointerEventLike }): void
+}>()
+
+const pos = defineModel<PositionItem>('pos', {
   required: true,
 })
 
-const { state, delta, parentRect, onActivation, onStart, onEnd, onMove } = useDrag(pos.value)
+const { state, delta, parentRect, onActivation, onStart, onEnd, onMove } = useDrag(pos)
 
-const style = computed(() => {
-  const { top, left, width, height } = state.value.pos
-  return {
-    top,
-    left,
-    width,
-    height,
-    transform: state.value.active ? `translate(${delta.value.deltaX}px, ${delta.value.deltaY}px)` : '',
-  }
-})
+const style = computed(() => ({
+  ...state.value.pos,
+  transform: state.value.active ? `translate(${delta.value.deltaX}px, ${delta.value.deltaY}px)` : '',
+}))
 
 function moveOrResize(type: 'lt' | 'rt' | 'lb' | 'rb' | 'lc' | 'rc' | 'tc' | 'bc' | 'move') {
   let moveFn:
@@ -78,7 +80,7 @@ function moveOrResize(type: 'lt' | 'rt' | 'lb' | 'rb' | 'lc' | 'rc' | 'tc' | 'bc
     | null = null
   return {
     step: props.step,
-    onDragStart() {
+    onDragStart(_, ev) {
       const init = {
         x: state.value.pos.left,
         y: state.value.pos.top,
@@ -87,19 +89,45 @@ function moveOrResize(type: 'lt' | 'rt' | 'lb' | 'rb' | 'lc' | 'rc' | 'tc' | 'bc
       }
       moveFn = fn[type](init)
       onStart()
+      emits('start', { type, ev })
     },
-    onDragging(delta) {
+    onDragging(d, ev) {
       if (type === 'move') {
-        onMove({ deltaX: delta.dx, deltaY: delta.dy })
+        onMove({ deltaX: d.dx, deltaY: d.dy })
       } else {
-        Object.assign(state.value.pos, moveFn!(delta.dx, delta.dy))
+        Object.assign(state.value.pos, moveFn!(d.dx, d.dy))
       }
+      emits('move', {
+        type,
+        pos:
+          type === 'move'
+            ? {
+                top: state.value.pos.top + delta.value.deltaY,
+                left: state.value.pos.left + delta.value.deltaX,
+                width: state.value.pos.width,
+                height: state.value.pos.height,
+              }
+            : state.value.pos,
+        ev,
+      })
     },
-    onDragEnd() {
+    onDragEnd(ev) {
       onEnd()
+      emits('end', { type, ev })
+    },
+    onClick() {
+      emits('activation', state.value.active)
     },
   } satisfies DragHandlers
 }
+
+const containerMove = {
+  ...moveOrResize('move'),
+  onClick: (ev) => {
+    onActivation(ev)
+    emits('activation', state.value.active)
+  },
+} satisfies DragHandlers
 
 const fn = {
   move: () => null,
@@ -152,18 +180,6 @@ const fn = {
     height: range(init.height + deltaY, props.minHeight, parentRect.value!.height - init.y),
   }),
 }
-
-// util
-function toStylePx(obj: Record<string, number | string | undefined | null>): Record<string, string> {
-  const result: Record<string, string> = {}
-  for (const key in obj) {
-    const value = obj[key]
-    if (value != null) {
-      result[key] = typeof value === 'number' ? `${value}px` : value
-    }
-  }
-  return result
-}
 </script>
 
 <style scoped>
@@ -191,29 +207,29 @@ function toStylePx(obj: Record<string, number | string | undefined | null>): Rec
 }
 .handle-border.t {
   top: calc(var(--size) / -2);
-  left: calc(var(--size) / 2);
-  width: calc(100% - var(--size));
+  left: 0;
+  width: 100%;
   padding-top: calc(var(--size) / 2 - 1px);
   height: var(--size);
 }
 .handle-border.l {
-  top: calc(var(--size) / 2);
+  top: 0;
   left: calc(var(--size) / -2);
   width: var(--size);
   padding-left: calc(var(--size) / 2 - 1px);
-  height: calc(100% - var(--size));
+  height: 100%;
 }
 .handle-border.r {
-  top: calc(var(--size) / 2);
+  top: 0;
   right: calc(var(--size) / -2);
   width: var(--size);
   padding-left: calc(var(--size) / 2);
-  height: calc(100% - var(--size));
+  height: 100%;
 }
 .handle-border.b {
   bottom: calc(var(--size) / -2);
-  left: calc(var(--size) / 2);
-  width: calc(100% - var(--size));
+  left: 0;
+  width: 100%;
   padding-top: calc(var(--size) / 2);
   height: var(--size);
 }

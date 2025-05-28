@@ -5,6 +5,7 @@ interface DragDelta {
   dy: number
 }
 export interface DragHandlers {
+  disabled?: boolean
   onClick?: (e: PointerEventLike) => void
   onDragStart?: (start: { x: number; y: number }, e: PointerEventLike) => void
   onDragging?: (delta: DragDelta, e: PointerEventLike) => void
@@ -12,13 +13,22 @@ export interface DragHandlers {
   threshold?: number
   step?: number
 }
-
+export function getPoint(e: PointerEventLike): { clientX: number; clientY: number } | null {
+  if (e instanceof MouseEvent) {
+    return { clientX: e.clientX, clientY: e.clientY }
+  } else if (e.touches?.[0]) {
+    return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY }
+  }
+  return null
+}
 export const vDrag = {
   mounted(el: HTMLElement, binding: DirectiveBinding<DragHandlers>) {
     const { onClick, onDragStart, onDragging, onDragEnd, step = 1 } = binding.value || {}
     const threshold = binding.value.threshold ?? Math.max(5, step)
 
     const start = (startX: number, startY: number, originEvent: PointerEventLike, mode: 'mouse' | 'touch') => {
+      if (binding.value.disabled === true) return
+
       let isDragging = false
 
       const moveListener = (e: PointerEventLike) => {
@@ -64,15 +74,6 @@ export const vDrag = {
         document.addEventListener('touchend', endListener as EventListener)
         document.addEventListener('touchcancel', endListener as EventListener)
       }
-    }
-
-    function getPoint(e: PointerEventLike): { clientX: number; clientY: number } | null {
-      if (e instanceof MouseEvent) {
-        return { clientX: e.clientX, clientY: e.clientY }
-      } else if (e.touches?.[0]) {
-        return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY }
-      }
-      return null
     }
 
     const onMouseDown = (e: MouseEvent) => {

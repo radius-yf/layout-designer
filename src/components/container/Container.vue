@@ -5,31 +5,33 @@
       :key="item.id"
       :state="item.config"
       :option="item"
-      :lastPoint="lastPoint"
       @remove="child.splice(child.indexOf(item), 1)"
     />
   </DragContainer>
 </template>
 <script setup lang="ts" hoc="@/hooks/state#withRestState">
 import { useState } from '@/hooks/state'
-import { inject, provide, ref } from 'vue'
+import { inject, provide, type InjectionKey } from 'vue'
 import Comp from './Comp.vue'
-import DragContainer from './drag/DragContainer.vue'
-import type { Child } from './type'
+import DragContainer from '../drag/DragContainer.vue'
+import { provideEndPoint } from './hooks/context'
+import type { Child } from '../type'
 
-const isRoot = inject('isRoot', true)
-provide('isRoot', false)
+const IS_ROOT = Symbol() as InjectionKey<boolean>
+const isRoot = inject(IS_ROOT, true)
+provide(IS_ROOT, false)
+
 const disabled = useState(!isRoot)
 
 const child = useState<Child[]>([])
 
-const lastPoint = ref({ x: 0, y: 0 })
+const endPoint = provideEndPoint()
 function onDrop(event: DragEvent) {
   const opt = event.dataTransfer?.getData('text/plain')
   if (!opt) return
 
   const option = JSON.parse(opt)
-  lastPoint.value = { x: event.offsetX, y: event.offsetY }
+  endPoint.value = { x: event.offsetX, y: event.offsetY }
   addChild(option)
 }
 
