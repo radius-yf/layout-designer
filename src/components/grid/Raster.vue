@@ -12,6 +12,7 @@
           width: Infinity,
           height: 4,
         }"
+        @end="rows[index] = $event.pos.top + 2 + 'px'"
       >
         <div class="bg-gray-200 h-full cursor-n-resize"></div>
       </DragItem>

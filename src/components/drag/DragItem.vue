@@ -51,7 +51,7 @@ const props = withDefaults(
 const emits = defineEmits<{
   (e: 'activation', ev: boolean): void
   (e: 'start', ev: { type: string; ev: PointerEventLike }): void
-  (e: 'end', ev: { type: string; ev: PointerEventLike }): void
+  (e: 'end', ev: { type: string; pos: PositionItem; ev: PointerEventLike }): void
   (e: 'move', ev: { type: string; pos: PositionItem; ev: PointerEventLike }): void
 }>()
 
@@ -113,7 +113,7 @@ function moveOrResize(type: 'lt' | 'rt' | 'lb' | 'rb' | 'lc' | 'rc' | 'tc' | 'bc
     },
     onDragEnd(ev) {
       onEnd()
-      emits('end', { type, ev })
+      emits('end', { type, ev, pos: state.value.pos })
     },
     onClick() {
       emits('activation', state.value.active)

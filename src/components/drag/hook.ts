@@ -1,7 +1,17 @@
 import { useResize } from '@/hooks/useResize'
 import type { PointerEventLike } from '@/utils/bindClickOrDrag'
 import { range } from '@/utils/range'
-import { computed, inject, provide, ref, useTemplateRef, type InjectionKey, type Ref, type ShallowRef } from 'vue'
+import {
+  computed,
+  inject,
+  provide,
+  ref,
+  useTemplateRef,
+  watch,
+  type InjectionKey,
+  type Ref,
+  type ShallowRef,
+} from 'vue'
 
 export interface PositionItem {
   top: number
@@ -28,6 +38,8 @@ export function provideDragContainer(container: string | Readonly<ShallowRef<HTM
   const c = typeof container === 'string' ? useTemplateRef<HTMLElement>(container) : container
 
   const items = ref<{ pos: PositionItem; active: boolean }[]>([])
+  const actives = computed(() => items.value.filter((i) => i.active))
+
   // 多选时的移动功能
   const delta = ref({ deltaX: 0, deltaY: 0 })
 
@@ -37,11 +49,11 @@ export function provideDragContainer(container: string | Readonly<ShallowRef<HTM
 
     const deltaRange = computed(() => {
       const { width, height } = c.value?.getBoundingClientRect() ?? { width: 0, height: 0 }
-      const active = items.value.filter((i) => i.active).map((i) => i.pos)
-      const left = Math.min(...active.map((i) => i.left))
-      const top = Math.min(...active.map((i) => i.top))
-      const right = Math.max(...active.map((i) => i.left + i.width))
-      const bottom = Math.max(...active.map((i) => i.top + i.height))
+      const left = Math.min(...actives.value.map((i) => i.pos.left))
+      const top = Math.min(...actives.value.map((i) => i.pos.top))
+      const right = Math.max(...actives.value.map((i) => i.pos.left + i.pos.width))
+      const bottom = Math.max(...actives.value.map((i) => i.pos.top + i.pos.height))
+      console.log(left, top, right, bottom)
 
       return {
         x: [-left, width - right],
@@ -59,10 +71,8 @@ export function provideDragContainer(container: string | Readonly<ShallowRef<HTM
         }
       },
       onStart() {
-        if (!state.value.active) {
-          items.value.forEach((i) => (i.active = false))
-          state.value.active = true
-        }
+        items.value.forEach((i) => (i.active = false))
+        state.value.active = true
       },
       onMove(ev: { deltaX: number; deltaY: number }) {
         delta.value = {
@@ -99,6 +109,16 @@ export function useDrag(pos: Ref<PositionItem>) {
     throw new Error('inject DRAG_CONTAINER failed')
   }
   const { createDragItem, ...rest } = result
+  watch(
+    result.parentRect,
+    () => {
+      if (result.parentRect.value) {
+        pos.value.width = Math.min(pos.value.width, result.parentRect.value.width)
+        pos.value.height = Math.min(pos.value.height, result.parentRect.value.height)
+      }
+    },
+    { immediate: true }
+  )
   return {
     ...createDragItem(pos),
     ...rest,
